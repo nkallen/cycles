@@ -128,7 +128,9 @@ const char *plasticity_cycles_add_meshes(void *scene,
         const auto [slot, inserted] = material_slots.try_emplace(
             material_id, static_cast<int>(shaders.size()));
         if (inserted) {
-          shaders.push_back_slow(renderer.materials[material_id]);
+          auto *shader = renderer.materials[material_id];
+          shader->tag_used(&native_scene);
+          shaders.push_back_slow(shader);
         }
         mesh_shaders[triangle] = slot->second;
       }

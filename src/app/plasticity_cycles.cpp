@@ -5,6 +5,7 @@
 #include "device/device.h"
 #include "scene/light.h"
 #include "scene/object.h"
+#include "scene/shader_nodes.h"
 #include "util/log.h"
 #include "util/transform.h"
 
@@ -42,6 +43,20 @@ const char *plasticity_cycles_create(void **scene)
     if (result->session.progress.get_error()) {
       return plasticity_cycles_error(result->session.progress.get_error_message().c_str());
     }
+    auto &native_scene = *result->session.scene;
+    auto graph = ccl::make_unique<ccl::ShaderGraph>();
+    auto *emission = graph->create_node<ccl::EmissionNode>();
+    emission->set_color(ccl::make_float3(1.0f, 1.0f, 1.0f));
+    emission->set_strength(1.0f);
+    graph->connect(emission->output("Emission"), graph->output()->input("Surface"));
+    native_scene.default_light->set_graph(std::move(graph));
+    native_scene.default_light->tag_update(&native_scene);
+
+    auto *background = native_scene.create_node<ccl::BackgroundLight>();
+    background->set_use_mis(true);
+    auto *background_object = native_scene.create_node<ccl::Object>();
+    background_object->set_geometry(background);
+
     *scene = result.release();
     return nullptr;
   }
@@ -95,6 +110,7 @@ const char *plasticity_cycles_add_lights(void *scene,
 
       auto *object = native_scene.create_node<ccl::Object>();
       object->set_geometry(light);
+      object->set_visibility(ccl::PATH_RAY_VISIBILITY_ALL & ~ccl::PATH_RAY_VISIBILITY_CAMERA);
       const auto *position = positions + i * 3;
       object->set_tfm(ccl::transform_translate(static_cast<float>(position[0]),
                                                static_cast<float>(position[1]),

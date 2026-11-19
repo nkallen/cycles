@@ -63,7 +63,7 @@ def smoke_test(renderer):
         add_meshes(
             scene,
             1,
-            (float32 * 12)(-3, -3, 4, 3, -3, 4, 3, 3, 4, -3, 3, 4),
+            (float32 * 12)(-1, -1, 4, 1, -1, 4, 1, 1, 4, -1, 1, 4),
             (float32 * 12)(*([0, 0, -1] * 4)),
             (uint32 * 6)(0, 2, 1, 0, 3, 2),
             (int32 * 2)(0, 12),
@@ -78,15 +78,18 @@ def smoke_test(renderer):
 
         width, height = 9, 7
         pixels = (float32 * (width * height * 4))()
+        center = 4 * ((height // 2) * width + width // 2)
+        render(scene, width, height, 4, pixels)
+        assert math.isfinite(pixels[center]) and pixels[center] > 0, pixels[center : center + 4]
+        assert abs(pixels[center + 3] - 1) < 1e-5, pixels[center : center + 4]
+        assert abs(pixels[0]) < 1e-5, pixels[:4]
+
         with tempfile.TemporaryDirectory() as temp:
             hdr = Path(temp) / "studio.hdr"
             hdr.write_bytes(b"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 4\n" + bytes((128, 128, 128, 128)) * 8)
             set_environment(scene, str(hdr).encode("utf-8"), 0.3)
             render(scene, width, height, 4, pixels)
-
-        center = 4 * ((height // 2) * width + width // 2)
-        assert math.isfinite(pixels[center]) and pixels[center] > 0, pixels[center : center + 4]
-        assert abs(pixels[center + 3] - 1) < 1e-5, pixels[center : center + 4]
+        assert math.isfinite(pixels[0]) and pixels[0] > 0, pixels[:4]
     finally:
         destroy(scene)
 

@@ -17,12 +17,15 @@ jobs:
         include:
           - os: macos-latest
             library: libplasticity_cycles.dylib
+            parallel: 3
             update: make update
           - os: windows-latest
             library: plasticity_cycles.dll
+            parallel: 1
             update: cmd /c make.bat update
           - os: ubuntu-latest
             library: libplasticity_cycles.so
+            parallel: 4
             update: make update
     runs-on: ${{ matrix.os }}
     steps:
@@ -47,7 +50,7 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install" -DWITH_CYCLES_HYDRA_RENDER_DELEGATE=OFF -DWITH_PLASTICITY_CYCLES=ON
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel ${{ matrix.parallel }}
       - name: Install
         run: cmake --install build --config Release
       - name: Verify shared library and render
