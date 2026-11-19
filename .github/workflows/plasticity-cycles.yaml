@@ -18,15 +18,15 @@ jobs:
           - os: macos-latest
             library: libplasticity_cycles.dylib
             parallel: 3
-            update: make update
+            dependencies: macos_arm64
           - os: windows-latest
             library: plasticity_cycles.dll
             parallel: 1
-            update: cmd /c make.bat update
+            dependencies: windows_x64
           - os: ubuntu-latest
             library: libplasticity_cycles.so
             parallel: 4
-            update: make update
+            dependencies: linux_x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,20 @@ jobs:
           path: .git/modules/lib
           key: cycles-libraries-${{ runner.os }}-${{ runner.arch }}-${{ steps.libraries.outputs.revision }}
       - name: Download Cycles dependencies
-        run: ${{ matrix.update }}
+        shell: bash
+        env:
+          CYCLES_DEPENDENCIES: lib/${{ matrix.dependencies }}
+        run: |
+          git lfs install --local --skip-repo
+          git config --local "submodule.$CYCLES_DEPENDENCIES.update" checkout
+          for delay in 0 20 40; do
+            sleep "$delay"
+            if GIT_LFS_SKIP_SMUDGE=1 git submodule update --init --progress "$CYCLES_DEPENDENCIES" &&
+                git -C "$CYCLES_DEPENDENCIES" lfs pull; then
+              exit 0
+            fi
+          done
+          exit 1
       - name: Save Cycles dependencies
         if: steps.restore-libraries.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
