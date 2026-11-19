@@ -48,7 +48,13 @@ jobs:
           echo CC=gcc-14 >> "$GITHUB_ENV"
           echo CXX=g++-14 >> "$GITHUB_ENV"
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install" -DWITH_CYCLES_HYDRA_RENDER_DELEGATE=OFF -DWITH_PLASTICITY_CYCLES=ON
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+          -DWITH_CYCLES_HYDRA_RENDER_DELEGATE=OFF
+          -DWITH_CYCLES_USD=OFF
+          -DWITH_PLASTICITY_CYCLES=ON
       - name: Build
         run: cmake --build build --config Release --parallel ${{ matrix.parallel }}
       - name: Install
