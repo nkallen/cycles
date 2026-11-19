@@ -161,7 +161,7 @@ if(WITH_PLASTICITY_CYCLES)
 
   install(TARGETS plasticity_cycles DESTINATION .)
   install(FILES plasticity_cycles.h DESTINATION include)
-  install(FILES "${CMAKE_SOURCE_DIR}/LICENSE" DESTINATION .)
+  install(FILES "${CMAKE_SOURCE_DIR}/LICENSE" DESTINATION license RENAME Cycles-LICENSE.txt)
 endif()
 
 if(WITH_CYCLES_PRECOMPUTE)
