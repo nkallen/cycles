@@ -144,6 +144,22 @@ if(WITH_CYCLES_STANDALONE)
     COMMAND ${app_install_dir}/$<TARGET_FILE_NAME:cycles> --version)
 endif()
 
+option(WITH_PLASTICITY_CYCLES "Build the Plasticity Cycles shared library" OFF)
+
+if(WITH_PLASTICITY_CYCLES)
+  add_library(plasticity_cycles SHARED plasticity_cycles.cpp plasticity_cycles.h plasticity_cycles_internal.h)
+  target_compile_definitions(plasticity_cycles PRIVATE PLASTICITY_CYCLES_BUILD)
+  target_link_libraries(plasticity_cycles PRIVATE ${LIB})
+
+  if(CYCLES_STANDALONE_REPOSITORY)
+    cycles_install_libraries(plasticity_cycles)
+  endif()
+
+  install(TARGETS plasticity_cycles DESTINATION .)
+  install(FILES plasticity_cycles.h DESTINATION include)
+  install(FILES "${CMAKE_SOURCE_DIR}/LICENSE" DESTINATION .)
+endif()
+
 if(WITH_CYCLES_PRECOMPUTE)
   set(SRC
     cycles_precompute.cpp

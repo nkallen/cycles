@@ -1,0 +1,95 @@
+name: Plasticity Cycles
+
+on:
+  push:
+    branches: [codex/cycles-shared-library]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            library: libplasticity_cycles.dylib
+            update: make update
+          - os: windows-latest
+            library: plasticity_cycles.dll
+            update: cmd /c make.bat update
+          - os: ubuntu-latest
+            library: libplasticity_cycles.so
+            update: make update
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute dependency cache key
+        id: libraries
+        shell: bash
+        run: echo "revision=$(git rev-parse HEAD:lib)" >> "$GITHUB_OUTPUT"
+      - name: Cache Cycles dependencies
+        uses: actions/cache@v4
+        with:
+          path: .git/modules/lib
+          key: cycles-libraries-${{ runner.os }}-${{ runner.arch }}-${{ steps.libraries.outputs.revision }}
+      - name: Download Cycles dependencies
+        run: ${{ matrix.update }}
+      - name: Select Linux compiler
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          echo CC=gcc-14 >> "$GITHUB_ENV"
+          echo CXX=g++-14 >> "$GITHUB_ENV"
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install" -DWITH_CYCLES_HYDRA_RENDER_DELEGATE=OFF -DWITH_PLASTICITY_CYCLES=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Install
+        run: cmake --install build --config Release
+      - name: Verify shared library
+        shell: bash
+        env:
+          CYCLES_LIBRARY: ${{ matrix.library }}
+        run: |
+          python - <<'PY'
+          import ctypes as c
+          import os
+          from pathlib import Path
+
+          install = Path("install").resolve()
+          if os.name == "nt":
+              dll_directory = os.add_dll_directory(str(install))
+          renderer = c.CDLL(str(install / os.environ["CYCLES_LIBRARY"]))
+          renderer.plasticity_cycles_create.argtypes = [c.POINTER(c.c_void_p)]
+          renderer.plasticity_cycles_create.restype = c.c_char_p
+          renderer.plasticity_cycles_add_lights.argtypes = [
+              c.c_void_p, c.c_size_t, c.POINTER(c.c_int32),
+              c.POINTER(c.c_double), c.POINTER(c.c_double), c.POINTER(c.c_double),
+          ]
+          renderer.plasticity_cycles_add_lights.restype = c.c_char_p
+          renderer.plasticity_cycles_destroy.argtypes = [c.c_void_p]
+          renderer.plasticity_cycles_destroy.restype = None
+          scene = c.c_void_p()
+          error = renderer.plasticity_cycles_create(c.byref(scene))
+          assert error is None and scene.value, error
+          try:
+              error = renderer.plasticity_cycles_add_lights(
+                  scene, 2, (c.c_int32 * 2)(1, 2), (c.c_double * 6)(0, 0, 1, 0, 0, 2),
+                  (c.c_double * 2)(0.25, 1), (c.c_double * 2)(40, 80),
+              )
+              assert error is None, error
+          finally:
+              renderer.plasticity_cycles_destroy(scene)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plasticity-cycles-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            install/
+            !install/cycles
+            !install/cycles.exe
+          if-no-files-found: error
