@@ -31,6 +31,41 @@ PLASTICITY_CYCLES_API const char *plasticity_cycles_add_lights(void *scene,
                                                             const double *sizes,
                                                             const double *powers);
 
+/* Base colors are RGB triples. Material IDs are local to the scene. */
+PLASTICITY_CYCLES_API const char *plasticity_cycles_add_materials(void *scene,
+                                                               size_t count,
+                                                               const double *baseColors,
+                                                               const double *metallics,
+                                                               const double *roughnesses,
+                                                               int32_t *materialIds);
+
+/* Flattened xyz positions and normals share offsets into their float arrays.
+ * Indices are mesh-local. Each triangle has one material ID. */
+PLASTICITY_CYCLES_API const char *plasticity_cycles_add_meshes(void *scene,
+                                                            size_t count,
+                                                            const float *positions,
+                                                            const float *normals,
+                                                            const uint32_t *indices,
+                                                            const int32_t *positionOffsets,
+                                                            const int32_t *indexOffsets,
+                                                            const int32_t *materialIds);
+
+PLASTICITY_CYCLES_API const char *plasticity_cycles_set_environment(void *scene,
+                                                                 const char *path,
+                                                                 double strength);
+
+/* Twelve row-major camera-to-world components. Field of view is in radians. */
+PLASTICITY_CYCLES_API const char *plasticity_cycles_set_camera(void *scene,
+                                                             const double *transform,
+                                                             double fieldOfView);
+
+/* The host provides storage for width * height * 4 linear RGBA components. */
+PLASTICITY_CYCLES_API const char *plasticity_cycles_render(void *scene,
+                                                         int32_t width,
+                                                         int32_t height,
+                                                         int32_t samples,
+                                                         float *pixels);
+
 #ifdef __cplusplus
 }
 #endif

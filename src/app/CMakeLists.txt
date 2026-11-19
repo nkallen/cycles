@@ -147,7 +147,11 @@ endif()
 option(WITH_PLASTICITY_CYCLES "Build the Plasticity Cycles shared library" OFF)
 
 if(WITH_PLASTICITY_CYCLES)
-  add_library(plasticity_cycles SHARED plasticity_cycles.cpp plasticity_cycles.h plasticity_cycles_internal.h)
+  add_library(plasticity_cycles SHARED
+    plasticity_cycles.cpp
+    plasticity_cycles.h
+    plasticity_cycles_internal.h
+    plasticity_cycles_scene.cpp)
   target_compile_definitions(plasticity_cycles PRIVATE PLASTICITY_CYCLES_BUILD)
   target_link_libraries(plasticity_cycles PRIVATE ${LIB})
 

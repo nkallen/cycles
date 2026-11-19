@@ -50,41 +50,8 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Install
         run: cmake --install build --config Release
-      - name: Verify shared library
-        shell: bash
-        env:
-          CYCLES_LIBRARY: ${{ matrix.library }}
-        run: |
-          python - <<'PY'
-          import ctypes as c
-          import os
-          from pathlib import Path
-
-          install = Path("install").resolve()
-          if os.name == "nt":
-              dll_directory = os.add_dll_directory(str(install))
-          renderer = c.CDLL(str(install / os.environ["CYCLES_LIBRARY"]))
-          renderer.plasticity_cycles_create.argtypes = [c.POINTER(c.c_void_p)]
-          renderer.plasticity_cycles_create.restype = c.c_char_p
-          renderer.plasticity_cycles_add_lights.argtypes = [
-              c.c_void_p, c.c_size_t, c.POINTER(c.c_int32),
-              c.POINTER(c.c_double), c.POINTER(c.c_double), c.POINTER(c.c_double),
-          ]
-          renderer.plasticity_cycles_add_lights.restype = c.c_char_p
-          renderer.plasticity_cycles_destroy.argtypes = [c.c_void_p]
-          renderer.plasticity_cycles_destroy.restype = None
-          scene = c.c_void_p()
-          error = renderer.plasticity_cycles_create(c.byref(scene))
-          assert error is None and scene.value, error
-          try:
-              error = renderer.plasticity_cycles_add_lights(
-                  scene, 2, (c.c_int32 * 2)(1, 2), (c.c_double * 6)(0, 0, 1, 0, 0, 2),
-                  (c.c_double * 2)(0.25, 1), (c.c_double * 2)(40, 80),
-              )
-              assert error is None, error
-          finally:
-              renderer.plasticity_cycles_destroy(scene)
-          PY
+      - name: Verify shared library and render
+        run: python tools/test_plasticity_cycles.py "install/${{ matrix.library }}"
       - uses: actions/upload-artifact@v4
         with:
           name: plasticity-cycles-${{ runner.os }}-${{ runner.arch }}
