@@ -81,11 +81,16 @@ jobs:
         run: cmake --install build --config Release
       - name: Verify shared library and render
         run: python tools/test_plasticity_cycles.py "install/${{ matrix.library }}"
+      - name: Package shared library and dependencies
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            chmod -R u+rX install
+          fi
+          tar --exclude=./cycles --exclude=./cycles.exe -czf plasticity-cycles.tar.gz -C install .
       - uses: actions/upload-artifact@v4
         with:
           name: plasticity-cycles-${{ runner.os }}-${{ runner.arch }}
-          path: |
-            install/
-            !install/cycles
-            !install/cycles.exe
+          path: plasticity-cycles.tar.gz
+          compression-level: 0
           if-no-files-found: error
