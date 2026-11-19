@@ -50,7 +50,7 @@ def smoke_test(renderer):
     add_lights = status_call(
         "add_lights", void, size, pointer(int32), pointer(double), pointer(double), pointer(double)
     )
-    set_camera = status_call("set_camera", void, pointer(double), double)
+    set_camera = status_call("set_camera_matrices", void, pointer(double), pointer(double))
     set_environment = status_call("set_environment", void, ctypes.c_char_p, double)
     render = status_call("render", void, int32, int32, int32, pointer(float32))
 
@@ -63,9 +63,9 @@ def smoke_test(renderer):
         add_meshes(
             scene,
             1,
-            (float32 * 12)(-1, -1, 4, 1, -1, 4, 1, 1, 4, -1, 1, 4),
-            (float32 * 12)(*([0, 0, -1] * 4)),
-            (uint32 * 6)(0, 2, 1, 0, 3, 2),
+            (float32 * 12)(-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0),
+            (float32 * 12)(*([0, 0, 1] * 4)),
+            (uint32 * 6)(0, 1, 2, 0, 2, 3),
             (int32 * 2)(0, 12),
             (int32 * 2)(0, 6),
             (int32 * 2)(material.value, material.value),
@@ -74,9 +74,17 @@ def smoke_test(renderer):
             scene, 2, (int32 * 2)(1, 2), (double * 6)(0, 0, 2, 1, 0, 3),
             (double * 2)(0.1, 1), (double * 2)(100, 40),
         )
-        set_camera(scene, (double * 12)(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0), 1.0)
-
         width, height = 9, 7
+        f = 1 / math.tan(0.5)
+        near, far = 0.1, 100
+        view = (double * 16)(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 4, 1)
+        projection = (double * 16)(
+            f * height / width, 0, 0, 0,
+            0, f, 0, 0,
+            0, 0, -(far + near) / (far - near), -1,
+            0, 0, -2 * far * near / (far - near), 0,
+        )
+        set_camera(scene, view, projection)
         pixels = (float32 * (width * height * 4))()
         center = 4 * ((height // 2) * width + width // 2)
         render(scene, width, height, 4, pixels)
@@ -88,6 +96,13 @@ def smoke_test(renderer):
             hdr = Path(temp) / "studio.hdr"
             hdr.write_bytes(b"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 4\n" + bytes((128, 128, 128, 128)) * 8)
             set_environment(scene, str(hdr).encode("utf-8"), 0.3)
+            orthographic = (double * 16)(
+                0.5, 0, 0, 0,
+                0, 2 / 3, 0, 0,
+                0, 0, -2 / (far - near), 0,
+                0, 0, -(far + near) / (far - near), 1,
+            )
+            set_camera(scene, view, orthographic)
             render(scene, width, height, 4, pixels)
         assert math.isfinite(pixels[0]) and pixels[0] > 0, pixels[:4]
     finally:

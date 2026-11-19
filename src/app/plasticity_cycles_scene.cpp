@@ -6,7 +6,6 @@
 #include "scene/camera.h"
 #include "scene/mesh.h"
 #include "scene/object.h"
-#include "scene/pass.h"
 #include "scene/shader_nodes.h"
 #include "session/buffers.h"
 #include "session/output_driver.h"
@@ -16,6 +15,8 @@
 #include <algorithm>
 #include <exception>
 #include <filesystem>
+#include <limits>
+#include <numbers>
 #include <unordered_map>
 
 namespace {
@@ -188,23 +189,43 @@ const char *plasticity_cycles_set_environment(void *scene, const char *path, con
   }
 }
 
-const char *plasticity_cycles_set_camera(void *scene,
-                                         const double *transform,
-                                         const double field_of_view)
+const char *plasticity_cycles_set_camera_matrices(void *scene,
+                                                  const double *view,
+                                                  const double *projection)
 {
   try {
     auto &native_scene = *static_cast<PlasticityCycles *>(scene)->session.scene;
     const ccl::thread_scoped_lock lock(native_scene.mutex);
-    ccl::Transform matrix;
+    ccl::Transform camera_to_world;
     for (int row = 0; row < 3; ++row) {
-      const double *values = transform + row * 4;
-      matrix[row] = ccl::make_float4(static_cast<float>(values[0]),
-                                     static_cast<float>(values[1]),
-                                     static_cast<float>(values[2]),
-                                     static_cast<float>(values[3]));
+      camera_to_world[row] = ccl::make_float4(static_cast<float>(view[row]),
+                                              static_cast<float>(view[row + 4]),
+                                              static_cast<float>(-view[row + 8]),
+                                              static_cast<float>(view[row + 12]));
     }
-    native_scene.camera->set_matrix(matrix);
-    native_scene.camera->set_fov(static_cast<float>(field_of_view));
+
+    auto &camera = *native_scene.camera;
+    camera.set_matrix(camera_to_world);
+    const bool perspective = projection[15] != 1.0;
+    camera.set_camera_type(perspective ? ccl::CAMERA_PERSPECTIVE : ccl::CAMERA_ORTHOGRAPHIC);
+    camera.set_fov(std::numbers::pi_v<float> / 2.0f);
+
+    const double center_x = perspective ? projection[8] : -projection[12];
+    const double center_y = perspective ? projection[9] : -projection[13];
+    camera.set_viewplane_left(static_cast<float>((center_x - 1.0) / projection[0]));
+    camera.set_viewplane_right(static_cast<float>((center_x + 1.0) / projection[0]));
+    camera.set_viewplane_bottom(static_cast<float>((center_y - 1.0) / projection[5]));
+    camera.set_viewplane_top(static_cast<float>((center_y + 1.0) / projection[5]));
+
+    if (perspective) {
+      camera.set_nearclip(static_cast<float>(projection[14] / (projection[10] - 1.0)));
+      camera.set_farclip(projection[10] == -1.0 ? std::numeric_limits<float>::max() :
+                                                  static_cast<float>(projection[14] / (projection[10] + 1.0)));
+    }
+    else {
+      camera.set_nearclip(static_cast<float>((projection[14] + 1.0) / projection[10]));
+      camera.set_farclip(static_cast<float>((projection[14] - 1.0) / projection[10]));
+    }
     return nullptr;
   }
   catch (const std::exception &error) {
@@ -226,14 +247,8 @@ const char *plasticity_cycles_render(void *scene,
     auto &native_scene = *session.scene;
     {
       const ccl::thread_scoped_lock lock(native_scene.mutex);
-      if (native_scene.passes.empty()) {
-        auto *pass = native_scene.create_node<ccl::Pass>();
-        pass->set_name(ccl::ustring("combined"));
-        pass->set_type(ccl::PASS_COMBINED);
-      }
       native_scene.camera->set_full_width(width);
       native_scene.camera->set_full_height(height);
-      native_scene.camera->compute_auto_viewplane();
     }
 
     ccl::BufferParams buffer;

@@ -22,7 +22,12 @@ extern "C" {
 PLASTICITY_CYCLES_API const char *plasticity_cycles_create(void **scene);
 PLASTICITY_CYCLES_API void plasticity_cycles_destroy(void *scene);
 
-/* Types are 1 for point and 2 for square area. Positions are xyz triples.
+enum PlasticityCyclesLightType {
+  PLASTICITY_CYCLES_LIGHT_POINT = 1,
+  PLASTICITY_CYCLES_LIGHT_AREA = 2,
+};
+
+/* Positions are xyz triples.
  * Sizes are point radii or area-light side lengths. Powers are scalar. */
 PLASTICITY_CYCLES_API const char *plasticity_cycles_add_lights(void *scene,
                                                             size_t count,
@@ -54,10 +59,10 @@ PLASTICITY_CYCLES_API const char *plasticity_cycles_set_environment(void *scene,
                                                                  const char *path,
                                                                  double strength);
 
-/* Twelve row-major camera-to-world components. Field of view is in radians. */
-PLASTICITY_CYCLES_API const char *plasticity_cycles_set_camera(void *scene,
-                                                             const double *transform,
-                                                             double fieldOfView);
+/* Column-major Three.js camera-to-world and WebGL projection matrices. */
+PLASTICITY_CYCLES_API const char *plasticity_cycles_set_camera_matrices(void *scene,
+                                                                      const double *view,
+                                                                      const double *projection);
 
 /* The host provides storage for width * height * 4 linear RGBA components. */
 PLASTICITY_CYCLES_API const char *plasticity_cycles_render(void *scene,

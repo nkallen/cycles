@@ -34,13 +34,20 @@ jobs:
         id: libraries
         shell: bash
         run: echo "revision=$(git rev-parse HEAD:lib)" >> "$GITHUB_OUTPUT"
-      - name: Cache Cycles dependencies
-        uses: actions/cache@v4
+      - name: Restore Cycles dependencies
+        id: restore-libraries
+        uses: actions/cache/restore@v4
         with:
           path: .git/modules/lib
           key: cycles-libraries-${{ runner.os }}-${{ runner.arch }}-${{ steps.libraries.outputs.revision }}
       - name: Download Cycles dependencies
         run: ${{ matrix.update }}
+      - name: Save Cycles dependencies
+        if: steps.restore-libraries.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .git/modules/lib
+          key: ${{ steps.restore-libraries.outputs.cache-primary-key }}
       - name: Select Linux compiler
         if: runner.os == 'Linux'
         shell: bash

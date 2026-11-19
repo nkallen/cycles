@@ -5,6 +5,7 @@
 #include "device/device.h"
 #include "scene/light.h"
 #include "scene/object.h"
+#include "scene/pass.h"
 #include "scene/shader_nodes.h"
 #include "util/log.h"
 #include "util/transform.h"
@@ -44,6 +45,7 @@ const char *plasticity_cycles_create(void **scene)
       return plasticity_cycles_error(result->session.progress.get_error_message().c_str());
     }
     auto &native_scene = *result->session.scene;
+    native_scene.passes[0]->set_name(ccl::ustring("combined"));
     auto graph = ccl::make_unique<ccl::ShaderGraph>();
     auto *emission = graph->create_node<ccl::EmissionNode>();
     emission->set_color(ccl::make_float3(1.0f, 1.0f, 1.0f));
@@ -81,7 +83,7 @@ const char *plasticity_cycles_add_lights(void *scene,
                                         const double *powers)
 {
   for (size_t i = 0; i < count; ++i) {
-    if (types[i] != 1 && types[i] != 2) {
+    if (types[i] != PLASTICITY_CYCLES_LIGHT_POINT && types[i] != PLASTICITY_CYCLES_LIGHT_AREA) {
       return plasticity_cycles_error("Unknown Cycles light type");
     }
   }
@@ -92,7 +94,7 @@ const char *plasticity_cycles_add_lights(void *scene,
     for (size_t i = 0; i < count; ++i) {
       const float size = static_cast<float>(sizes[i]);
       ccl::Light *light;
-      if (types[i] == 1) {
+      if (types[i] == PLASTICITY_CYCLES_LIGHT_POINT) {
         auto *point = native_scene.create_node<ccl::PointLight>();
         point->set_radius(size);
         light = point;
